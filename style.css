@@ -217,7 +217,9 @@ ul { list-style: none; }
   background: var(--black);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  /* overflow removido do hero — o ticker (último filho flex)
+     precisa aparecer na base sem scroll;
+     o overflow:hidden está no .hero-stripe para cortar o ticker */
 }
 
 /* Grid/quadriculado sutil */
@@ -281,15 +283,6 @@ ul { list-style: none; }
 .hero-title em {
   font-style: normal;
   color: var(--light);
-  position: relative;
-}
-.hero-title em::after {
-  content: '';
-  position: absolute;
-  left: 0; right: 0;
-  bottom: -2px;
-  height: 2px;
-  background: var(--light2);
 }
 
 .hero-sub {
@@ -880,7 +873,7 @@ ul { list-style: none; }
 
 .footer-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: 1.2fr 1fr 1fr 1fr;
   gap: 24px;                       /* era 36px */
   margin-bottom: 24px;             /* era 48px */
 }
@@ -949,6 +942,25 @@ ul { list-style: none; }
 }
 .footer-social:hover { color: var(--white); }
 .footer-social i { font-size: 1rem; }
+.footer-col--cta .footer-cta-desc {
+  font-size: .85rem;
+  color: var(--mid2);
+  line-height: 1.6;
+  margin-bottom: 16px;
+}
+.footer-cta-btn {
+  background: var(--pure);
+  color: var(--black);
+  border-color: var(--pure);
+  font-size: .85rem;
+  padding: 10px 20px;
+  width: 100%;
+  justify-content: center;
+}
+.footer-cta-btn:hover {
+  background: transparent;
+  color: var(--pure);
+}
 .footer-bottom {
   border-top: 1px solid rgba(255,255,255,.06);
   padding: 14px 0;                 /* era 20px */
@@ -1019,6 +1031,7 @@ ul { list-style: none; }
   .map-embed { height: 260px; }
   .contact-wrap { grid-template-columns: 1fr; gap: 32px; }
   .gallery-grid { grid-template-columns: repeat(2, 1fr); }
+  .footer-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
 @media (max-width: 700px) {
@@ -1052,6 +1065,7 @@ ul { list-style: none; }
 
   /* Checkboxes em coluna única no mobile */
   .checklist-cols { grid-template-columns: 1fr; }
+  .footer-grid { grid-template-columns: 1fr; }
 
   .lightbox-prev { left: 8px; }
   .lightbox-next { right: 8px; }
