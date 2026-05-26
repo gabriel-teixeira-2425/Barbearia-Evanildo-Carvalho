@@ -210,9 +210,10 @@ ul { list-style: none; }
    ============================================================ */
 .hero {
   position: relative;
-  /* Altura calculada para caber tudo sem scroll:
-     usa min-height menor + padding controlado */
-  min-height: 100svh;
+  /* Altura exata da viewport — fallback dvh para mobile */
+  height: 100dvh;
+  height: 100svh;
+  min-height: 520px;
   background: var(--black);
   display: flex;
   flex-direction: column;
@@ -243,7 +244,7 @@ ul { list-style: none; }
   display: flex;
   flex-direction: column;
   justify-content: center;
-  /* Padding reduzido para deixar tudo visível sem scroll */
+  /* padding ajustado — stripe é filho flex abaixo, sem sobreposição */
   padding: 82px 24px 32px;
   max-width: 780px;
   margin: 0 auto;
@@ -310,34 +311,37 @@ ul { list-style: none; }
 }
 
 /* ============================================================
-   TICKER — FIX 1: faixa única com overflow hidden, animação
-   contínua usando translateX de 0 a -50% (os dois <span>
-   idênticos criam o loop perfeito sem gap nem duplicação)
+   TICKER — último filho flex do hero, sempre visível na base
    ============================================================ */
+
 .hero-stripe {
-  position: relative;
-  z-index: 2;
+  /* Flex-shrink:0 garante que o stripe não seja espremido */
+  flex-shrink: 0;
+  width: 100%;
   background: rgba(255,255,255,.04);
   border-top: 1px solid rgba(255,255,255,.07);
+  /* overflow:hidden AQUI, não no .hero — corta apenas o ticker */
   overflow: hidden;
   padding: 9px 0;
-  /* Não usa display:flex aqui — o track interno faz o trabalho */
-  animation: fadeIn .5s .6s ease both;
-  opacity: 0;
+  position: relative;
+  z-index: 2;
 }
 
 .ticker-track {
-  /* Inline-block para medir a largura real do conteúdo */
-  display: inline-block;
+  /* Flex row: os dois spans ficam lado a lado, cobrindo 200% da largura */
+  display: flex;
+  width: max-content;
   white-space: nowrap;
-  /* Move de 0 a -50%: como o conteúdo é duplicado, ao chegar
-     em -50% o visual é idêntico ao início → loop invisível */
-  animation: tickerScroll 28s linear infinite;
+  /* De 0 a -50%: os dois spans são idênticos, então ao chegar
+     em -50% o visual recomeça do mesmo ponto → loop invisível */
+  animation: tickerScroll 26s linear infinite;
   will-change: transform;
 }
 
 .ticker-track span {
+  /* Cada span ocupa pelo menos a largura total da tela */
   display: inline-block;
+  min-width: 100vw;
   font-family: var(--font-display);
   font-size: .9rem;
   letter-spacing: .18em;
@@ -347,10 +351,6 @@ ul { list-style: none; }
 @keyframes tickerScroll {
   from { transform: translateX(0); }
   to   { transform: translateX(-50%); }
-}
-
-@keyframes fadeIn {
-  to { opacity: 1; }
 }
 
 /* ============================================================
