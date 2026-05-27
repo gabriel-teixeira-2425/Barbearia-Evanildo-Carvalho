@@ -738,6 +738,8 @@ ul { list-style: none; }
   grid-template-columns: 1.4fr 1fr;
   gap: 48px;
   align-items: start;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 /* Wrapper das duas colunas de checkboxes */
@@ -745,11 +747,13 @@ ul { list-style: none; }
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px 16px;
+  max-width: 100%;
 }
 .checklist-col {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  max-width: 100%;
 }
 
 .check-item {
@@ -762,6 +766,8 @@ ul { list-style: none; }
   border: 1px solid rgba(255,255,255,.08);
   background: rgba(255,255,255,.03);
   transition: var(--transition);
+  max-width: 100%;
+  overflow-x: hidden;
 }
 .check-item:hover { background: rgba(255,255,255,.08); }
 .check-item input[type="checkbox"] { display: none; }
@@ -793,13 +799,18 @@ ul { list-style: none; }
   color: var(--light);
   display: flex;
   justify-content: space-between;
-  gap: 6px;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  word-break: break-word;
+  min-width: 0;
 }
 .check-label em {
   font-style: normal;
   color: var(--light2);
   font-size: .82rem;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 .check-item input:checked ~ .check-label { color: var(--white); }
 
@@ -807,6 +818,7 @@ ul { list-style: none; }
 .contact-action {
   display: flex;
   flex-direction: column;
+  max-width: 100%;
 }
 
 .total-box {
@@ -817,6 +829,7 @@ ul { list-style: none; }
   display: flex;
   flex-direction: column;
   gap: 6px;
+  max-width: 100%;
 }
 .total-label {
   font-size: .78rem;
@@ -844,6 +857,52 @@ ul { list-style: none; }
   font-size: .87rem;
   color: #ff6b6b;
   min-height: 20px;
+}
+
+/* CORREÇÃO MOBILE - evita corte na direita */
+@media (max-width: 700px) {
+  .contact-wrap {
+    grid-template-columns: 1fr;
+    gap: 28px;
+    padding: 0;
+  }
+  
+  .checklist-cols {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    width: 100%;
+  }
+  
+  .checklist-col {
+    width: 100%;
+  }
+  
+  .check-item {
+    width: 100%;
+    padding: 10px 12px;
+  }
+  
+  .check-label {
+    font-size: 0.85rem;
+    gap: 8px;
+  }
+  
+  .contact-action {
+    max-width: 100%;
+  }
+  
+  .total-box {
+    width: 100%;
+    padding: 16px;
+  }
+  
+  .btn-whatsapp {
+    width: 100%;
+    white-space: normal;
+    word-break: break-word;
+    padding: 14px 12px;
+    font-size: 0.9rem;
+  }
 }
 
 /* ============================================================
