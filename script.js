@@ -6,6 +6,65 @@
   'use strict';
 
   /* ============================================================
+     0. TICKER — robusto: reconstrói após fontes carregarem + resize
+     ============================================================ */
+  const BASE_TEXT = 'CORTE\u00a0·\u00a0BARBA\u00a0·\u00a0DEGRADÊ\u00a0·\u00a0ESTILO\u00a0·\u00a0TRADIÇÃO\u00a0·\u00a0PACAJUS\u00a0·\u00a0NAVALHA\u00a0·\u00a0TESOURA\u00a0·\u00a0';
+  const SPEED_PX  = 80; // pixels por segundo
+
+  function buildTicker() {
+    const track = document.querySelector('.ticker-track');
+    if (!track) return;
+
+    // Para a animação durante a reconstrução para evitar flash
+    track.style.animation = 'none';
+    track.innerHTML = '';
+
+    // Mede a largura real de uma unidade de texto com as fontes já carregadas
+    const seed = document.createElement('span');
+    seed.className        = 'ticker-group';
+    seed.textContent      = BASE_TEXT;
+    seed.style.visibility = 'hidden';
+    seed.style.position   = 'absolute';
+    seed.style.whiteSpace = 'nowrap';
+    track.appendChild(seed);
+
+    // Força reflow para obter a largura correta
+    const unitW = seed.getBoundingClientRect().width || seed.offsetWidth || 400;
+    track.removeChild(seed);
+
+    // Quantas unidades precisam para preencher 200vw com folga
+    const screenW     = window.innerWidth;
+    const unitsNeeded = Math.ceil((screenW * 2) / unitW) + 4;
+    const halfUnits   = Math.ceil(unitsNeeded / 2);
+
+    // Cria exatamente dois grupos iguais (a animação vai de 0 → -50%)
+    for (let g = 0; g < 2; g++) {
+      const group = document.createElement('span');
+      group.className   = 'ticker-group';
+      group.textContent = BASE_TEXT.repeat(halfUnits);
+      track.appendChild(group);
+    }
+
+    // Duração proporcional ao conteúdo para velocidade constante
+    void track.offsetWidth; // força reflow antes de medir
+    const totalW = track.scrollWidth / 2;
+    const dur    = totalW / SPEED_PX;
+
+    track.style.animation = `tickerScroll ${dur.toFixed(1)}s linear infinite`;
+  }
+
+  // Constrói imediatamente e depois de novo quando as fontes estiverem prontas
+  buildTicker();
+  document.fonts.ready.then(buildTicker);
+
+  // Reconstrói se a janela for redimensionada (ex: rotação de tela, zoom do OS)
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(buildTicker, 200);
+  }, { passive: true });
+
+  /* ============================================================
      1. NAVBAR — scroll effect + mobile toggle
      ============================================================ */
   const navbar     = document.getElementById('navbar');

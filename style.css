@@ -330,10 +330,10 @@ ul { list-style: none; }
   will-change: transform;
 }
 
-.ticker-track span {
-  /* Cada span ocupa pelo menos a largura total da tela */
+.ticker-track span,
+.ticker-group {
   display: inline-block;
-  min-width: 100vw;
+  white-space: nowrap;
   font-family: var(--font-display);
   font-size: .9rem;
   letter-spacing: .18em;
@@ -1267,4 +1267,30 @@ html, body {
   .gallery-grid  { grid-template-columns: 1fr; }
   .hero-title    { font-size: clamp(2.2rem, 13vw, 3rem); }
   .hero-actions .btn { max-width: 100%; }
+}
+/* Seleção personalizada para o fundo escuro */
+.section-dark ::selection {
+  background: #ffffff;
+  color: #0a0a0a;
+}
+
+/* Firefox */
+.section-dark ::-moz-selection {
+  background: #ffffff;
+  color: #0a0a0a;
+}
+/* Seleção personalizada para fundo claro (inverte o padrão) */
+.section:not(.section-dark) ::selection,
+.container ::selection,
+body:not(.section-dark) ::selection {
+  background: #0a0a0a;
+  color: #ffffff;
+}
+
+/* Firefox */
+.section:not(.section-dark) ::-moz-selection,
+.container ::-moz-selection,
+body:not(.section-dark) ::-moz-selection {
+  background: #0a0a0a;
+  color: #ffffff;
 }
