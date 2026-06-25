@@ -1,9 +1,7 @@
-**Barbearia Evanildo Carvalho — Site Institucional** <br>
+# Barbearia Evanildo Carvalho — Site Institucional
 Site para barbearia em Pacajus — CE, com cardápio de serviços, galeria, depoimentos, localização e agendamento via WhatsApp.<br>
-<br>
 **Acesse o site:** https://barbearia-evanildo-carvalho.netlify.app/<br>
-<br>
-**SOBRE O PROJETO**<br>
+# SOBRE O PROJETO
 Site desenvolvido para a Barbearia Evanildo Carvalho, localizada em Pacajus — CE. O projeto foi criado para fortalecer a presença digital da barbearia, permitindo que clientes conheçam os serviços, vejam fotos do trabalho, leiam depoimentos e entrem em contato diretamente via WhatsApp.
 
 **Diferenciais do projeto:**
@@ -13,7 +11,7 @@ Site desenvolvido para a Barbearia Evanildo Carvalho, localizada em Pacajus — 
 - Status de funcionamento em tempo real (aberto/fechado)
 - Seleção de serviços com soma automática de valores
 
-**TECNOLOGIAS UTILIZADAS**
+# TECNOLOGIAS UTILIZADAS
 
 - **HTML5:** Estrutura semântica e acessível
 - **CSS3:** Estilização com tema claro/escuro, animações e responsividade
@@ -23,7 +21,7 @@ Site desenvolvido para a Barbearia Evanildo Carvalho, localizada em Pacajus — 
 - **Google Maps Embed:** Mapa interativo com loader temático
 - **Netlify:** Hospedagem
 
-**FUNCIONALIDADES**
+# FUNCIONALIDADES
 
 - Design responsivo (celular, tablet e desktop)
 - Menu fixo com efeito de blur ao rolar
@@ -43,11 +41,11 @@ Site desenvolvido para a Barbearia Evanildo Carvalho, localizada em Pacajus — 
 - Rodapé com horários, endereço, redes sociais e agendamento
 - Botão WhatsApp flutuante
 
-**LOADER TEMÁTICO**<br>
+# LOADER TEMÁTICO
 
 O mapa da localização conta com um loader personalizado no formato de um poste de barbearia, com listras girando em CSS puro e mensagem de carregamento com animação de pontinhos. O iframe do Google Maps carrega em segundo plano e substitui o loader suavemente.
 
-**ESTRUTURA DO PROJETO**
+# ESTRUTURA DO PROJETO
 
 /
 - index.html (página principal)
@@ -57,12 +55,12 @@ O mapa da localização conta com um loader personalizado no formato de um poste
 - assets/
   - galeria1.webp a galeria6.webp (fotos da galeria)
 
-**CONTATO**<br>
+# CONTATO
 
 Gabriel Levi dos Santos Teixeira<br>
 **LinkedIn:** https://www.linkedin.com/in/gabriel-levi-teixeira<br>
 **GitHub:** https://github.com/gabriel-teixeira-2425<br>
 **WhatsApp:** https://wa.me/5585992648353<br>
 
-**TAGS**<br>
+# TAGS
 #html #css #javascript #barbearia #pacajus #ceara #sites #webdesign #responsivo #lightbox #whatsapp
