@@ -360,13 +360,27 @@
           </a>
         </div>
         <div class="map-embed">
+          <!-- Loader temático de barbearia -->
+          <div class="map-loader" id="mapLoader">
+            <div class="map-loader__pole-outer">
+              <div class="map-loader__ball"></div>
+              <div class="map-loader__cap-top"></div>
+              <div class="map-loader__body">
+                <div class="map-loader__stripes"></div>
+              </div>
+              <div class="map-loader__cap-bottom"></div>
+              <div class="map-loader__base"></div>
+            </div>
+            <p class="map-loader__text">Carregando localização<span class="map-loader__dots"></span></p>
+          </div>
           <iframe
             title="Mapa Barbearia Evanildo Carvalho"
             src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3981.099999!2d-38.4608!3d-4.1731!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f17.0!3m3!1m2!1s0x7c0a40c7d9b4c4d%3A0x0!2zUi4gRG9jYSBOb2d1ZWlyYSwgNzIyIC0gQ2VudHJvLCBQYWNhanVzIC0gQ0UsIDYyODcwLTAwMA!5e0!3m2!1spt-BR!2sbr!4v1699999999999!5m2!1spt-BR!2sbr&zoom=17&output=embed"
             allowfullscreen=""
             loading="lazy"
             referrerpolicy="no-referrer-when-downgrade"
-            scrolling="no">
+            scrolling="no"
+            onload="document.getElementById('mapLoader').style.opacity='0'; setTimeout(()=>document.getElementById('mapLoader').style.display='none',400);">
           </iframe>
         </div>
       </div>
