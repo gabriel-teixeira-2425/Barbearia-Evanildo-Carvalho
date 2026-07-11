@@ -1,0 +1,47 @@
+# fly.toml - Configuração para Fly.io
+
+app = "barbearia-evanildo"  # Nome único (mude para algo disponível)
+
+[build]
+  # Usa o Dockerfile para o n8n, e serve os arquivos estáticos via nginx
+
+[env]
+  N8N_PORT = "5678"
+  N8N_PROTOCOL = "https"
+  N8N_HOST = "barbearia-evanildo.fly.dev"
+  WEBHOOK_URL = "https://barbearia-evanildo.fly.dev"
+  
+  # Autenticação básica para o n8n (opcional, mas recomendado)
+  N8N_BASIC_AUTH_ACTIVE = "true"
+  N8N_BASIC_AUTH_USER = "admin"
+  N8N_BASIC_AUTH_PASSWORD = "barbearia2026"
+
+  # Credenciais do Google (adicione as suas)
+  # GOOGLE_SHEETS_CREDENTIALS = "seu-json-aqui"
+  # GOOGLE_DRIVE_CREDENTIALS = "seu-json-aqui"
+
+[[services]]
+  http_checks = []
+  internal_port = 8080  # Porta onde o nginx/n8n vai rodar
+  processes = ["app"]
+  protocol = "tcp"
+  script_checks = []
+
+  [services.concurrency]
+    hard_limit = 25
+    soft_limit = 20
+    type = "connections"
+
+  [[services.ports]]
+    handlers = ["http"]
+    port = 80
+
+  [[services.ports]]
+    handlers = ["tls", "http"]
+    port = 443
+
+  [[services.tcp_checks]]
+    grace_period = "1s"
+    interval = "15s"
+    restart_limit = 6
+    timeout = "2s"
