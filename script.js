@@ -193,11 +193,29 @@
      5. CONTATO — soma dinâmica + WhatsApp sem observações
      FIX 4: data-price nos checkboxes, total atualizado em tempo real
      ============================================================ */
-  const checkboxes   = document.querySelectorAll('input[name="servico"]');
-  const totalValue   = document.getElementById('totalValue');
-  const totalHint    = document.getElementById('totalHint');
-  const btnWhatsapp  = document.getElementById('btnWhatsapp');
-  const contactAlert = document.getElementById('contactAlert');
+
+  // ⚠️ CONFIGURAÇÃO: troque pela URL base do seu n8n (produção)
+  // Exemplo: 'https://seu-n8n.dominio.com/webhook'
+const N8N_BASE_URL = 'https://documentation-gonna-controlling-luggage.trycloudflare.com/webhook';
+  // Precisa bater exatamente com os horários da planilha-modelo
+  const HORARIOS_PADRAO = [
+    '07:00 à 07:30', '07:30 à 08:00', '08:00 à 08:30', '08:30 à 09:00',
+    '09:00 à 09:30', '09:30 à 10:00', '10:00 à 10:30', '10:30 à 11:00',
+    '11:00 à 11:30', '14:00 à 14:30', '14:30 à 15:00', '15:00 à 15:30',
+    '15:30 à 16:00', '16:00 à 16:30', '16:30 à 17:00', '17:00 à 17:30', '17:30 à 18:00'
+  ];
+
+  const checkboxes      = document.querySelectorAll('input[name="servico"]');
+  const totalValue      = document.getElementById('totalValue');
+  const totalHint       = document.getElementById('totalHint');
+  const btnWhatsapp     = document.getElementById('btnWhatsapp');
+  const clienteNome     = document.getElementById('clienteNome');
+  const clienteTelefone = document.getElementById('clienteTelefone');
+  const clienteData     = document.getElementById('clienteData');
+  const clienteHorario  = document.getElementById('clienteHorario');
+  const horarioStatus   = document.getElementById('horarioStatus');
+
+  let dataSelecionadaBR = ''; // data no formato DD-MM-YYYY, usada no envio
 
   function calcTotal() {
     let sum = 0;
@@ -218,37 +236,411 @@
         ? 'Valor estimado dos serviços selecionados'
         : 'Selecione os serviços ao lado';
     }
+
+    alignServicesForm();
   }
 
   checkboxes.forEach(cb => {
     cb.addEventListener('change', () => {
       updateTotal();
-      contactAlert.textContent = '';
     });
   });
+
+  // Limpa erro visual assim que o cliente começa a corrigir
+  [clienteNome, clienteTelefone].forEach(input => {
+    if (!input) return;
+    input.addEventListener('input', () => {
+      input.classList.remove('input-error');
+    });
+  });
+
+  // Máscara automática de telefone: (99) 9999-9999 ou (99) 99999-9999
+  function maskTelefone(value) {
+    let v = value.replace(/\D/g, '').slice(0, 11);
+    if (v.length > 10) {
+      v = v.replace(/^(\d{2})(\d{5})(\d{0,4}).*/, '($1) $2-$3');
+    } else if (v.length > 6) {
+      v = v.replace(/^(\d{2})(\d{4})(\d{0,4}).*/, '($1) $2-$3');
+    } else if (v.length > 2) {
+      v = v.replace(/^(\d{2})(\d{0,5})/, '($1) $2');
+    } else if (v.length > 0) {
+      v = v.replace(/^(\d*)/, '($1');
+    }
+    return v;
+  }
+
+  if (clienteTelefone) {
+    clienteTelefone.addEventListener('input', () => {
+      const pos = clienteTelefone.value.length;
+      clienteTelefone.value = maskTelefone(clienteTelefone.value);
+      // Mantém o cursor no fim durante a digitação (evita saltos)
+      if (pos <= clienteTelefone.value.length) {
+        clienteTelefone.setSelectionRange(clienteTelefone.value.length, clienteTelefone.value.length);
+      }
+    });
+  }
+
+  /* ============================================================
+     5a. DIA + HORÁRIO — consulta disponibilidade real no Drive
+     ============================================================ */
+
+  // Converte 'YYYY-MM-DD' (input date) para 'DD-MM-YYYY' (formato do workflow)
+  function paraDataBR(valorInputDate) {
+    const [ano, mes, dia] = valorInputDate.split('-');
+    return `${dia}-${mes}-${ano}`;
+  }
+
+  // Preenche o <select> de horários a partir da lista vinda do n8n
+  function preencherHorarios(horarios) {
+    clienteHorario.innerHTML = '';
+
+    const optPlaceholder = document.createElement('option');
+    optPlaceholder.value = '';
+    optPlaceholder.textContent = 'Selecione um horário';
+    clienteHorario.appendChild(optPlaceholder);
+
+    horarios.forEach(item => {
+      const opt = document.createElement('option');
+      opt.value = item.horario;
+      const ocupado = (item.status || '').toUpperCase() === 'OCUPADO';
+      opt.textContent = ocupado ? `${item.horario} (ocupado)` : item.horario;
+      opt.disabled = ocupado;
+      clienteHorario.appendChild(opt);
+    });
+
+    clienteHorario.disabled = false;
+  }
+
+  // Busca disponibilidade no n8n; se falhar ou não configurado, cai no fallback (todos livres)
+  async function carregarDisponibilidade(dataBR) {
+    clienteHorario.disabled = true;
+    clienteHorario.innerHTML = '<option value="">Carregando horários...</option>';
+    horarioStatus.textContent = 'Verificando horários disponíveis...';
+    horarioStatus.className = 'horario-status';
+
+    try {
+      if (!N8N_BASE_URL || N8N_BASE_URL.includes('SEU-N8N-AQUI')) {
+        throw new Error('N8N_BASE_URL não configurada');
+      }
+
+      const resp = await fetch(`${N8N_BASE_URL}/disponibilidade?data=${encodeURIComponent(dataBR)}`);
+      if (!resp.ok) throw new Error('Falha na consulta (' + resp.status + ')');
+
+      const data = await resp.json();
+      const horarios = Array.isArray(data) ? data : data.horarios;
+      if (!Array.isArray(horarios) || horarios.length === 0) throw new Error('Resposta vazia');
+
+      preencherHorarios(horarios);
+
+      const livres = horarios.filter(h => (h.status || '').toUpperCase() !== 'OCUPADO').length;
+      horarioStatus.textContent = livres > 0
+        ? `${livres} horário(s) livre(s) neste dia`
+        : 'Todos os horários deste dia já estão ocupados';
+      horarioStatus.className = 'horario-status ' + (livres > 0 ? 'ok' : 'error');
+
+    } catch (err) {
+      // Fallback: mostra a grade padrão de horários (sem checar ocupação em tempo real)
+      preencherHorarios(HORARIOS_PADRAO.map(h => ({ horario: h, status: 'LIVRE' })));
+      horarioStatus.textContent = 'Não foi possível verificar horários ocupados agora — mostrando a grade padrão.';
+      horarioStatus.className = 'horario-status error';
+    }
+  }
+
+  if (clienteData) {
+    // Não permite escolher datas passadas
+    const hoje = new Date();
+    const isoHoje = hoje.toISOString().slice(0, 10);
+    clienteData.setAttribute('min', isoHoje);
+
+    clienteData.addEventListener('change', () => {
+      clienteData.classList.remove('input-error');
+
+      if (!clienteData.value) return;
+
+      const [ano, mes, dia] = clienteData.value.split('-').map(Number);
+      const diaSemana = new Date(ano, mes - 1, dia).getDay(); // 0 = domingo
+
+      if (diaSemana === 0) {
+        horarioStatus.textContent = 'Fechamos aos domingos — escolha outro dia.';
+        horarioStatus.className = 'horario-status error';
+        clienteHorario.disabled = true;
+        clienteHorario.innerHTML = '<option value="">Escolha o dia primeiro</option>';
+        dataSelecionadaBR = '';
+        return;
+      }
+
+      dataSelecionadaBR = paraDataBR(clienteData.value);
+      carregarDisponibilidade(dataSelecionadaBR);
+    });
+  }
 
   // Inicializa o total
   updateTotal();
 
   btnWhatsapp.addEventListener('click', () => {
-    const checked = Array.from(
+    const nome           = clienteNome ? clienteNome.value.trim() : '';
+    const telefone       = clienteTelefone ? clienteTelefone.value.trim() : '';
+    const telefoneDigits = telefone.replace(/\D/g, '');
+    const horario        = clienteHorario ? clienteHorario.value : '';
+    const checked        = Array.from(
       document.querySelectorAll('input[name="servico"]:checked')
     ).map(cb => cb.value);
 
-    if (checked.length === 0) {
-      contactAlert.textContent = 'Por favor, selecione pelo menos um serviço antes de enviar.';
+    // Validação: nome, telefone (mín. 10 dígitos), dia, horário e ao menos 1 serviço
+    let erro = '';
+    if (!nome)                          erro = 'Por favor, informe seu nome.';
+    else if (telefoneDigits.length < 10) erro = 'Por favor, informe um telefone válido com DDD.';
+    else if (!dataSelecionadaBR)        erro = 'Por favor, escolha o dia do atendimento.';
+    else if (!horario)                  erro = 'Por favor, escolha um horário disponível.';
+    else if (checked.length === 0)       erro = 'Por favor, selecione pelo menos um serviço antes de enviar.';
+
+    if (clienteNome)     clienteNome.classList.toggle('input-error', !nome);
+    if (clienteTelefone) clienteTelefone.classList.toggle('input-error', !!nome && telefoneDigits.length < 10);
+    if (clienteData)     clienteData.classList.toggle('input-error', !!nome && telefoneDigits.length >= 10 && !dataSelecionadaBR);
+
+    if (erro) {
+      mostrarToast({
+        type: 'error',
+        title: 'Não foi possível continuar',
+        text: erro
+      });
       return;
     }
 
-    contactAlert.textContent = '';
-
-    // FIX 4: mensagem sem observações
-    const servicosList = checked.join(', ');
-    const message = `Olá Evanildo, tudo bem? Gostaria de saber se tem horário disponível para: ${servicosList}. Aguardo sua resposta. Obrigado!`;
-
-    const encoded = encodeURIComponent(message);
-    window.open(`https://wa.me/558591954828?text=${encoded}`, '_blank', 'noopener,noreferrer');
+    abrirConfirmacao({ nome, telefone, data: dataSelecionadaBR, horario, servicos: checked });
   });
+
+  /* ============================================================
+     5c. MODAL DE CONFIRMAÇÃO — revisão dos dados antes de enviar
+     ============================================================ */
+  const confirmOverlay        = document.getElementById('confirmOverlay');
+  const confirmClose          = document.getElementById('confirmClose');
+  const confirmCancel         = document.getElementById('confirmCancel');
+  const confirmSubmitBtn      = document.getElementById('confirmSubmit');
+  const confirmTermsCheckbox  = document.getElementById('confirmTermsCheckbox');
+  const confirmNome           = document.getElementById('confirmNome');
+  const confirmTelefone       = document.getElementById('confirmTelefone');
+  const confirmData           = document.getElementById('confirmData');
+  const confirmHorario        = document.getElementById('confirmHorario');
+  const confirmServicos       = document.getElementById('confirmServicos');
+  const confirmTotal          = document.getElementById('confirmTotal');
+
+  let pedidoPendente = null; // guarda os dados enquanto o modal está aberto
+
+  // Converte 'DD-MM-YYYY' em algo legível, ex: 13/07/2026
+  function formatarDataExibicao(dataBR) {
+    if (!dataBR) return '—';
+    const [dia, mes, ano] = dataBR.split('-');
+    return `${dia}/${mes}/${ano}`;
+  }
+
+  function abrirConfirmacao(pedido) {
+    pedidoPendente = pedido;
+
+    confirmNome.textContent     = pedido.nome;
+    confirmTelefone.textContent = pedido.telefone;
+    confirmData.textContent     = formatarDataExibicao(pedido.data);
+    confirmHorario.textContent  = pedido.horario;
+    confirmServicos.textContent = pedido.servicos.join(', ');
+    confirmTotal.textContent    = totalValue.textContent;
+
+    confirmTermsCheckbox.checked = false;
+    confirmSubmitBtn.disabled    = true;
+    confirmSubmitBtn.classList.remove('loading');
+    confirmSubmitBtn.innerHTML   = '<i class="fas fa-check"></i> Confirmar agendamento';
+
+    confirmOverlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function fecharConfirmacao() {
+    confirmOverlay.classList.remove('open');
+    document.body.style.overflow = '';
+    pedidoPendente = null;
+  }
+
+  confirmClose.addEventListener('click', fecharConfirmacao);
+  confirmCancel.addEventListener('click', fecharConfirmacao);
+  confirmOverlay.addEventListener('click', e => {
+    if (e.target === confirmOverlay) fecharConfirmacao();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && confirmOverlay.classList.contains('open')) fecharConfirmacao();
+  });
+
+  confirmTermsCheckbox.addEventListener('change', () => {
+    confirmSubmitBtn.disabled = !confirmTermsCheckbox.checked;
+  });
+
+  confirmSubmitBtn.addEventListener('click', async () => {
+    if (!pedidoPendente || confirmSubmitBtn.disabled) return;
+
+    const pedido = pedidoPendente;
+    confirmSubmitBtn.classList.add('loading');
+    confirmSubmitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...';
+
+    const sucesso = await enviarAgendamento(pedido);
+
+    fecharConfirmacao();
+
+    if (sucesso) {
+      mostrarToast({
+        type: 'success',
+        title: 'Horário marcado!',
+        text: `Seu agendamento para ${formatarDataExibicao(pedido.data)} às ${pedido.horario} foi confirmado. Até breve na barbearia! ✂️`
+      });
+      // Reseta o formulário para um novo agendamento
+      checkboxes.forEach(cb => { cb.checked = false; });
+      updateTotal();
+      if (clienteNome) clienteNome.value = '';
+      if (clienteTelefone) clienteTelefone.value = '';
+      if (clienteData) clienteData.value = '';
+      if (clienteHorario) {
+        clienteHorario.innerHTML = '<option value="">Escolha o dia primeiro</option>';
+        clienteHorario.disabled = true;
+      }
+      if (horarioStatus) { horarioStatus.textContent = ''; horarioStatus.className = 'horario-status'; }
+      dataSelecionadaBR = '';
+    } else {
+      mostrarToast({
+        type: 'error',
+        title: 'Não foi possível marcar o horário',
+        text: 'Tivemos um problema para confirmar seu agendamento automaticamente. Entre em contato com o Evanildo pelo <a href="https://wa.me/558591954828" target="_blank" rel="noopener">WhatsApp</a>, marque seu horário por lá e, se puder, avise sobre esse erro.'
+      });
+    }
+  });
+
+  // Envia o pedido para o workflow (n8n), que grava na planilha do dia.
+  // Retorna true/false indicando se a chamada foi bem-sucedida.
+  async function enviarAgendamento(pedido) {
+    if (!N8N_BASE_URL || N8N_BASE_URL.includes('SEU-N8N-AQUI')) {
+      return false;
+    }
+    try {
+      const resp = await fetch(`${N8N_BASE_URL}/consultar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          data: pedido.data,
+          horario: pedido.horario,
+          cliente: pedido.nome,
+          telefone: pedido.telefone,
+          servicos: pedido.servicos.join(', ')
+        })
+      });
+      return resp.ok;
+    } catch (err) {
+      console.warn('Falha ao registrar agendamento no workflow:', err);
+      return false;
+    }
+  }
+
+  /* ============================================================
+     5d. TOASTS — notificações de sucesso/erro
+     ============================================================ */
+  const toastContainer = document.getElementById('toastContainer');
+
+  function mostrarToast({ type = 'success', title = '', text = '', duration = 9000 }) {
+    if (!toastContainer) return;
+
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+
+    const icon = type === 'success' ? 'fa-circle-check' : 'fa-circle-exclamation';
+
+    toast.innerHTML = `
+      <i class="fas ${icon} toast-icon"></i>
+      <div class="toast-body">
+        <p class="toast-title"></p>
+        <p class="toast-text"></p>
+      </div>
+      <button type="button" class="toast-close" aria-label="Fechar"><i class="fas fa-times"></i></button>
+      <span class="toast-timer"></span>
+    `;
+    toast.querySelector('.toast-title').textContent = title;
+    toast.querySelector('.toast-text').innerHTML = text; // texto controlado internamente (pode ter link)
+
+    const timerBar = toast.querySelector('.toast-timer');
+    timerBar.style.animationDuration = duration + 'ms';
+
+    let fecharTimeout;
+
+    const remover = () => {
+      clearTimeout(fecharTimeout);
+      toast.classList.remove('show');
+      setTimeout(() => toast.remove(), 250);
+    };
+
+    const agendarFechamento = (ms) => {
+      clearTimeout(fecharTimeout);
+      fecharTimeout = setTimeout(remover, ms);
+    };
+
+    // Pausa o temporizador (visual + fechamento) enquanto o mouse está sobre o toast
+    toast.addEventListener('mouseenter', () => {
+      clearTimeout(fecharTimeout);
+      timerBar.style.animationPlayState = 'paused';
+    });
+    toast.addEventListener('mouseleave', () => {
+      const trackWidth = timerBar.parentElement.getBoundingClientRect().width;
+      const restanteProporcional = trackWidth
+        ? timerBar.getBoundingClientRect().width / trackWidth
+        : 0;
+      timerBar.style.animationPlayState = 'running';
+      agendarFechamento(Math.max(restanteProporcional * duration, 600));
+    });
+
+    toast.querySelector('.toast-close').addEventListener('click', remover);
+    toastContainer.appendChild(toast);
+
+    requestAnimationFrame(() => toast.classList.add('show'));
+    agendarFechamento(duration);
+  }
+
+
+  /* ============================================================
+     5b. ALINHAMENTO — botão do WhatsApp termina junto com a lista
+     Mede a altura real da lista de serviços e ajusta o box do
+     total para que o fim do botão bata exatamente com o fim da
+     lista, em qualquer resolução (só no layout de 2 colunas).
+     ============================================================ */
+  function alignServicesForm() {
+    const checklist = document.querySelector('.checklist-cols');
+    const totalBox  = document.getElementById('totalBox');
+    const btn       = document.getElementById('btnWhatsapp');
+    if (!checklist || !totalBox || !btn) return;
+
+    // Abaixo de 900px o layout empilha em coluna única: sem alinhamento forçado
+    if (window.innerWidth <= 900) {
+      totalBox.style.height = '';
+      return;
+    }
+
+    // Reseta para medir a altura natural do total-box antes de recalcular
+    totalBox.style.height = '';
+
+    const checklistBottom = checklist.getBoundingClientRect().bottom;
+    const totalBoxRect    = totalBox.getBoundingClientRect();
+    const btnRect         = btn.getBoundingClientRect();
+    const btnMarginTop    = parseFloat(getComputedStyle(btn).marginTop) || 0;
+
+    // Altura necessária para que o fim do botão alinhe com o fim da lista
+    const target = checklistBottom - totalBoxRect.top - btnMarginTop - btnRect.height;
+
+    if (target > totalBoxRect.height) {
+      totalBox.style.height = target + 'px';
+    }
+  }
+
+  alignServicesForm();
+  window.addEventListener('load', alignServicesForm);
+  document.fonts.ready.then(alignServicesForm);
+
+  let alignResizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(alignResizeTimer);
+    alignResizeTimer = setTimeout(alignServicesForm, 150);
+  }, { passive: true });
 
   /* ============================================================
      6. FOOTER — status aberto/fechado em tempo real (BRT)
