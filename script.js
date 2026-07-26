@@ -101,6 +101,14 @@
       const offset = 70;
       const top = target.getBoundingClientRect().top + window.scrollY - offset;
       window.scrollTo({ top, behavior: 'smooth' });
+
+      // Botões "Agendar Horário" (hero/rodapé): leva direto pro formulário
+      if (this.classList.contains('js-scroll-agendar')) {
+        const nomeInput = document.getElementById('clienteNome');
+        if (nomeInput) {
+          setTimeout(() => nomeInput.focus({ preventScroll: true }), 500);
+        }
+      }
     });
   });
 
@@ -194,7 +202,7 @@
      FIX 4: data-price nos checkboxes, total atualizado em tempo real
      ============================================================ */
 
-  // ⚠️ CONFIGURAÇÃO: troque pela URL base do seu n8n (produção)
+  // CONFIGURAÇÃO: troque pela URL base do seu n8n (produção)
   // Exemplo: 'https://seu-n8n.dominio.com/webhook'
 const N8N_BASE_URL = 'https://n8n-production-a163.up.railway.app/webhook';
 
@@ -506,7 +514,7 @@ const N8N_BASE_URL = 'https://n8n-production-a163.up.railway.app/webhook';
   const confirmClose          = document.getElementById('confirmClose');
   const confirmCancel         = document.getElementById('confirmCancel');
   const confirmSubmitBtn      = document.getElementById('confirmSubmit');
-  const confirmTermsCheckbox  = document.getElementById('confirmTermsCheckbox');
+  const confirmCheckboxes     = document.querySelectorAll('.confirm-checks input[type="checkbox"]');
   const confirmNome           = document.getElementById('confirmNome');
   const confirmTelefone       = document.getElementById('confirmTelefone');
   const confirmData           = document.getElementById('confirmData');
@@ -533,7 +541,7 @@ const N8N_BASE_URL = 'https://n8n-production-a163.up.railway.app/webhook';
     confirmServicos.textContent = pedido.servicos.join(', ');
     confirmTotal.textContent    = totalValue.textContent;
 
-    confirmTermsCheckbox.checked = false;
+    confirmCheckboxes.forEach(cb => { cb.checked = false; });
     confirmSubmitBtn.disabled    = true;
     confirmSubmitBtn.classList.remove('loading');
     confirmSubmitBtn.innerHTML   = '<i class="fas fa-check"></i> Confirmar agendamento';
@@ -557,8 +565,12 @@ const N8N_BASE_URL = 'https://n8n-production-a163.up.railway.app/webhook';
     if (e.key === 'Escape' && confirmOverlay.classList.contains('open')) fecharConfirmacao();
   });
 
-  confirmTermsCheckbox.addEventListener('change', () => {
-    confirmSubmitBtn.disabled = !confirmTermsCheckbox.checked;
+  // Só libera o botão quando os 3 avisos estiverem marcados
+  confirmCheckboxes.forEach(cb => {
+    cb.addEventListener('change', () => {
+      const todasMarcadas = Array.from(confirmCheckboxes).every(c => c.checked);
+      confirmSubmitBtn.disabled = !todasMarcadas;
+    });
   });
 
   confirmSubmitBtn.addEventListener('click', async () => {
@@ -568,15 +580,15 @@ const N8N_BASE_URL = 'https://n8n-production-a163.up.railway.app/webhook';
     confirmSubmitBtn.classList.add('loading');
     confirmSubmitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...';
 
-    const sucesso = await enviarAgendamento(pedido);
+    const resultado = await enviarAgendamento(pedido);
 
     fecharConfirmacao();
 
-    if (sucesso) {
+    if (resultado.sucesso) {
       mostrarToast({
         type: 'success',
-        title: 'Horário marcado!',
-        text: `Seu agendamento para ${formatarDataExibicao(pedido.data)} às ${pedido.horario} foi confirmado. Até breve na barbearia! ✂️`
+        title: 'Horário marcado',
+        text: `Seu agendamento para ${formatarDataExibicao(pedido.data)} às ${pedido.horario} foi confirmado. Até breve na barbearia.`
       });
       // Reseta o formulário para um novo agendamento
       checkboxes.forEach(cb => { cb.checked = false; });
@@ -590,6 +602,16 @@ const N8N_BASE_URL = 'https://n8n-production-a163.up.railway.app/webhook';
       }
       if (horarioStatus) { horarioStatus.textContent = ''; horarioStatus.className = 'horario-status'; }
       dataSelecionadaBR = '';
+    } else if (resultado.mensagem) {
+      // O backend recusou o agendamento com um motivo específico (ex: outro
+      // cliente confirmou esse horário primeiro). Mostra o motivo real e
+      // atualiza a lista de horários, que provavelmente mudou.
+      mostrarToast({
+        type: 'error',
+        title: 'Não foi possível confirmar esse horário',
+        text: resultado.mensagem
+      });
+      if (dataSelecionadaBR) carregarDisponibilidade(dataSelecionadaBR);
     } else {
       mostrarToast({
         type: 'error',
@@ -599,11 +621,14 @@ const N8N_BASE_URL = 'https://n8n-production-a163.up.railway.app/webhook';
     }
   });
 
-  // Envia o pedido para o workflow (n8n), que grava na planilha do dia.
-  // Retorna true/false indicando se a chamada foi bem-sucedida.
+  // Envia o pedido para o workflow (n8n), que verifica se o horário ainda
+  // está livre e grava na planilha do dia. O webhook agora só responde
+  // depois que o workflow termina (não mais na hora do recebimento), então
+  // dá pra saber de verdade se o agendamento foi confirmado ou recusado
+  // (ex: outra pessoa marcou esse mesmo horário um instante antes).
   async function enviarAgendamento(pedido) {
     if (!N8N_BASE_URL || N8N_BASE_URL.includes('SEU-N8N-AQUI')) {
-      return false;
+      return { sucesso: false };
     }
     try {
       const resp = await fetch(`${N8N_BASE_URL}/consultar`, {
@@ -617,10 +642,25 @@ const N8N_BASE_URL = 'https://n8n-production-a163.up.railway.app/webhook';
           servicos: pedido.servicos.join(', ')
         })
       });
-      return resp.ok;
+
+      if (!resp.ok) return { sucesso: false };
+
+      let corpo = null;
+      try { corpo = await resp.json(); } catch (e) { /* resposta sem corpo JSON */ }
+
+      // A resposta pode vir como um único objeto ou uma lista (uma por linha
+      // ocupada, quando o serviço escolhido ocupa mais de um horário de 20min)
+      const itens = Array.isArray(corpo) ? corpo : (corpo ? [corpo] : []);
+      const comErro = itens.find(item => item && item.erro);
+
+      if (comErro) {
+        return { sucesso: false, mensagem: comErro.mensagemErro };
+      }
+
+      return { sucesso: true };
     } catch (err) {
       console.warn('Falha ao registrar agendamento no workflow:', err);
-      return false;
+      return { sucesso: false };
     }
   }
 

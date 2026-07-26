@@ -48,8 +48,8 @@
       </h1>
       <p class="hero-sub">Estilo e tradição em Pacajus&nbsp;— CE</p>
       <div class="hero-actions">
-        <a href="https://wa.me/558591954828" target="_blank" rel="noopener" class="btn btn-primary">
-          <i class="fab fa-whatsapp"></i> Agendar Horário
+        <a href="#contato" class="btn btn-primary js-scroll-agendar">
+          <i class="fas fa-calendar-check"></i> Agendar Horário
         </a>
         <a href="#servicos" class="btn btn-outline">
           Ver Serviços <i class="fas fa-arrow-down"></i>
@@ -551,9 +551,9 @@
         </div>
         <div class="footer-col footer-col--cta">
           <h4>Agendamento</h4>
-          <p class="footer-cta-desc">Agendamento via WhatsApp. Resposta rápida nos dias úteis.</p>
-          <a href="https://wa.me/558591954828" target="_blank" rel="noopener" class="btn btn-primary footer-cta-btn">
-            <i class="fab fa-whatsapp"></i> Agendar agora
+          <p class="footer-cta-desc">Escolha os serviços, o dia e o horário — confirmação na hora.</p>
+          <a href="#contato" class="btn btn-primary footer-cta-btn js-scroll-agendar">
+            <i class="fas fa-calendar-check"></i> Agendar agora
           </a>
         </div>
       </div>
@@ -606,11 +606,23 @@
         </div>
       </dl>
 
-      <label class="confirm-terms">
-        <input type="checkbox" id="confirmTermsCheckbox" />
-        <span class="confirm-terms-mark"></span>
-        <span class="confirm-terms-text">Ao aceitar esse termo, você confirma que verificou os dados informados e assume a responsabilidade de comparecer no horário marcado.</span>
-      </label>
+      <div class="confirm-checks">
+        <label class="confirm-terms">
+          <input type="checkbox" id="confirmCheckPresenca" />
+          <span class="confirm-terms-mark"></span>
+          <span class="confirm-terms-text">Confirmo que vou comparecer no horário marcado.</span>
+        </label>
+        <label class="confirm-terms">
+          <input type="checkbox" id="confirmCheckAntecedencia" />
+          <span class="confirm-terms-mark"></span>
+          <span class="confirm-terms-text">Vou chegar com 10 minutos de antecedência para evitar atrasos.</span>
+        </label>
+        <label class="confirm-terms">
+          <input type="checkbox" id="confirmCheckCancelamento" />
+          <span class="confirm-terms-mark"></span>
+          <span class="confirm-terms-text">Em caso de cancelamento, avisarei com pelo menos 10 minutos de antecedência.</span>
+        </label>
+      </div>
 
       <div class="confirm-actions">
         <button type="button" class="btn btn-outline confirm-cancel" id="confirmCancel">Cancelar</button>

@@ -1702,9 +1702,19 @@ body:not(.section-dark) ::-moz-selection {
   letter-spacing: .03em;
 }
 
+.confirm-checks {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 22px;
+}
+.confirm-checks .confirm-terms {
+  margin-bottom: 0;
+}
+
 .confirm-terms {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 12px;
   cursor: pointer;
   padding: 14px 16px;
@@ -1723,7 +1733,6 @@ body:not(.section-dark) ::-moz-selection {
   border-radius: 4px;
   flex-shrink: 0;
   position: relative;
-  margin-top: 1px;
   transition: var(--transition);
 }
 .confirm-terms input:checked ~ .confirm-terms-mark {
@@ -1775,21 +1784,25 @@ body:not(.section-dark) ::-moz-selection {
    ============================================================ */
 .toast-container {
   position: fixed;
-  top: 20px;
+  top: max(20px, env(safe-area-inset-top, 20px));
   right: 20px;
-  z-index: 1100;
+  z-index: 1200;
   display: flex;
   flex-direction: column;
   gap: 10px;
   max-width: 380px;
   width: calc(100% - 40px);
+  pointer-events: none;
 }
+.toast-container .toast { pointer-events: auto; }
+
 @media (max-width: 560px) {
+  /* No celular a notificação fica no topo (não embaixo, onde a barra do
+     navegador/teclado pode encobrir) e ocupa a largura toda com margem */
   .toast-container {
-    top: auto;
-    bottom: 20px;
-    right: 20px;
-    left: 20px;
+    top: max(12px, env(safe-area-inset-top, 12px));
+    right: 12px;
+    left: 12px;
     max-width: none;
     width: auto;
   }
@@ -1801,22 +1814,27 @@ body:not(.section-dark) ::-moz-selection {
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  background: #141414;
-  border: 1px solid rgba(255,255,255,.12);
+  background: #161616;
+  border: 1px solid rgba(255,255,255,.14);
   border-left: 3px solid var(--white);
   border-radius: var(--radius-sm);
   padding: 14px 16px 18px;
-  box-shadow: 0 12px 30px rgba(0,0,0,.4);
+  box-shadow: 0 16px 40px rgba(0,0,0,.5);
+  backdrop-filter: blur(10px);
   opacity: 0;
-  transform: translateX(24px);
-  transition: opacity .25s ease, transform .25s ease;
+  transform: translateY(-16px) scale(.98);
+  transition: opacity .3s cubic-bezier(.16,1,.3,1), transform .3s cubic-bezier(.16,1,.3,1);
 }
 .toast.show {
   opacity: 1;
-  transform: translateX(0);
+  transform: translateY(0) scale(1);
 }
 .toast-success { border-left-color: #7cd992; }
 .toast-error   { border-left-color: #ff6b6b; }
+
+@media (max-width: 560px) {
+  .toast { padding: 14px 14px 18px; }
+}
 
 /* Barrinha de temporizador — encolhe até fechar sozinho; pausa no hover */
 .toast-timer {
@@ -1869,7 +1887,11 @@ body:not(.section-dark) ::-moz-selection {
   color: var(--mid2);
   cursor: pointer;
   font-size: .85rem;
-  padding: 2px;
+  padding: 8px;
+  margin: -8px -8px -8px 0;
   flex-shrink: 0;
+  border-radius: 50%;
+  transition: var(--transition);
 }
-.toast-close:hover { color: var(--white); }
+.toast-close:hover,
+.toast-close:active { color: var(--white); background: rgba(255,255,255,.08); }
