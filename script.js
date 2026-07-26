@@ -196,14 +196,73 @@
 
   // ⚠️ CONFIGURAÇÃO: troque pela URL base do seu n8n (produção)
   // Exemplo: 'https://seu-n8n.dominio.com/webhook'
-const N8N_BASE_URL = 'https://documentation-gonna-controlling-luggage.trycloudflare.com/webhook';
-  // Precisa bater exatamente com os horários da planilha-modelo
-  const HORARIOS_PADRAO = [
-    '07:00 à 07:30', '07:30 à 08:00', '08:00 à 08:30', '08:30 à 09:00',
-    '09:00 à 09:30', '09:30 à 10:00', '10:00 à 10:30', '10:30 à 11:00',
-    '11:00 à 11:30', '14:00 à 14:30', '14:30 à 15:00', '15:00 à 15:30',
-    '15:30 à 16:00', '16:00 à 16:30', '16:30 à 17:00', '17:00 à 17:30', '17:30 à 18:00'
-  ];
+const N8N_BASE_URL = 'https://n8n-production-a163.up.railway.app/webhook';
+
+  /* ------------------------------------------------------------
+     GRADE DE HORÁRIOS (usada só no fallback offline, quando o n8n
+     não responde). Espelha a mesma lógica do workflow: slots de
+     20min, grade diferente para dia de semana e sábado, e janelas
+     combinadas conforme os serviços marcados (corte/luzes/barba).
+     ------------------------------------------------------------ */
+  function paraHHMM(totalMin) {
+    const h = String(Math.floor(totalMin / 60)).padStart(2, '0');
+    const m = String(totalMin % 60).padStart(2, '0');
+    return `${h}:${m}`;
+  }
+
+  function gerarBloco(inicioMin, fimMin) {
+    const lista = [];
+    for (let m = inicioMin; m < fimMin; m += 20) {
+      lista.push({ inicio: paraHHMM(m), fim: paraHHMM(m + 20) });
+    }
+    return lista;
+  }
+
+  // Seg-sex: 07:00-11:00 e 14:00-18:00 | Sábado: 07:00-11:40 e 14:00-18:40
+  function gerarGradeFallback(ehFimDeSemana) {
+    const manha = ehFimDeSemana ? gerarBloco(7 * 60, 11 * 60 + 40) : gerarBloco(7 * 60, 11 * 60);
+    const tarde = ehFimDeSemana ? gerarBloco(14 * 60, 18 * 60 + 40) : gerarBloco(14 * 60, 18 * 60);
+    return { manha, tarde };
+  }
+
+  // Mesma regra do backend: corte/luzes/barba mudam a duração, o resto não
+  function categoriaServico(texto) {
+    const s = texto.toString().toLowerCase();
+    if (s.includes('corte')) return 'cabelo';
+    if (s.includes('luz')) return 'luzes';
+    if (s.includes('barba')) return 'barba';
+    return null;
+  }
+
+  function contarCategorias(servicosSelecionados) {
+    const categorias = new Set(servicosSelecionados.map(categoriaServico).filter(Boolean));
+    return categorias.size || 1;
+  }
+
+  // Gera a lista de horários combinados (ex: "08:00 à 08:40") pro fallback offline
+  function gerarHorariosFallback(dataBR, servicosSelecionados) {
+    const [dia, mes, ano] = dataBR.split('-').map(Number);
+    const ehFimDeSemana = new Date(ano, mes - 1, dia).getDay() === 6;
+    const grade = gerarGradeFallback(ehFimDeSemana);
+    const n = contarCategorias(servicosSelecionados);
+
+    function janelasDoBloco(bloco) {
+      const resultado = [];
+      for (let i = 0; i <= bloco.length - n; i++) {
+        resultado.push({
+          horario: `${bloco[i].inicio} à ${bloco[i + n - 1].fim}`,
+          status: 'LIVRE'
+        });
+      }
+      return resultado;
+    }
+
+    return [...janelasDoBloco(grade.manha), ...janelasDoBloco(grade.tarde)];
+  }
+
+  function servicosMarcados() {
+    return Array.from(document.querySelectorAll('input[name="servico"]:checked')).map(cb => cb.value);
+  }
 
   const checkboxes      = document.querySelectorAll('input[name="servico"]');
   const totalValue      = document.getElementById('totalValue');
@@ -311,8 +370,21 @@ const N8N_BASE_URL = 'https://documentation-gonna-controlling-luggage.trycloudfl
     clienteHorario.disabled = false;
   }
 
-  // Busca disponibilidade no n8n; se falhar ou não configurado, cai no fallback (todos livres)
+  // Busca disponibilidade no n8n; se falhar ou não configurado, cai no fallback (todos livres).
+  // Os horários mudam de tamanho conforme os serviços marcados (1 serviço=20min,
+  // 2=40min, 3=60min), então servicos é enviado junto pra API já devolver as
+  // combinações certas (ex: "08:00 à 08:40").
   async function carregarDisponibilidade(dataBR) {
+    const servicosSelecionados = servicosMarcados();
+
+    if (servicosSelecionados.length === 0) {
+      clienteHorario.disabled = true;
+      clienteHorario.innerHTML = '<option value="">Escolha os serviços primeiro</option>';
+      horarioStatus.textContent = 'Selecione pelo menos um serviço para ver os horários disponíveis.';
+      horarioStatus.className = 'horario-status';
+      return;
+    }
+
     clienteHorario.disabled = true;
     clienteHorario.innerHTML = '<option value="">Carregando horários...</option>';
     horarioStatus.textContent = 'Verificando horários disponíveis...';
@@ -323,24 +395,33 @@ const N8N_BASE_URL = 'https://documentation-gonna-controlling-luggage.trycloudfl
         throw new Error('N8N_BASE_URL não configurada');
       }
 
-      const resp = await fetch(`${N8N_BASE_URL}/disponibilidade?data=${encodeURIComponent(dataBR)}`);
+      const servicosParam = encodeURIComponent(servicosSelecionados.join(','));
+      const resp = await fetch(`${N8N_BASE_URL}/disponibilidade?data=${encodeURIComponent(dataBR)}&servicos=${servicosParam}`);
       if (!resp.ok) throw new Error('Falha na consulta (' + resp.status + ')');
 
       const data = await resp.json();
       const horarios = Array.isArray(data) ? data : data.horarios;
-      if (!Array.isArray(horarios) || horarios.length === 0) throw new Error('Resposta vazia');
+      if (!Array.isArray(horarios)) throw new Error('Resposta inválida');
+
+      if (horarios.length === 0) {
+        clienteHorario.innerHTML = '<option value="">Nenhum horário disponível</option>';
+        clienteHorario.disabled = true;
+        horarioStatus.textContent = data.mensagem || 'Não há combinação de horário disponível para os serviços escolhidos nesse dia.';
+        horarioStatus.className = 'horario-status error';
+        return;
+      }
 
       preencherHorarios(horarios);
 
       const livres = horarios.filter(h => (h.status || '').toUpperCase() !== 'OCUPADO').length;
       horarioStatus.textContent = livres > 0
         ? `${livres} horário(s) livre(s) neste dia`
-        : 'Todos os horários deste dia já estão ocupados';
+        : 'Todos os horários deste dia já estão ocupados para os serviços escolhidos';
       horarioStatus.className = 'horario-status ' + (livres > 0 ? 'ok' : 'error');
 
     } catch (err) {
       // Fallback: mostra a grade padrão de horários (sem checar ocupação em tempo real)
-      preencherHorarios(HORARIOS_PADRAO.map(h => ({ horario: h, status: 'LIVRE' })));
+      preencherHorarios(gerarHorariosFallback(dataBR, servicosSelecionados));
       horarioStatus.textContent = 'Não foi possível verificar horários ocupados agora — mostrando a grade padrão.';
       horarioStatus.className = 'horario-status error';
     }
@@ -373,6 +454,14 @@ const N8N_BASE_URL = 'https://documentation-gonna-controlling-luggage.trycloudfl
       carregarDisponibilidade(dataSelecionadaBR);
     });
   }
+
+  // Se o cliente já escolheu o dia e depois muda os serviços marcados,
+  // recarrega os horários (a duração da janela pode mudar)
+  checkboxes.forEach(cb => {
+    cb.addEventListener('change', () => {
+      if (dataSelecionadaBR) carregarDisponibilidade(dataSelecionadaBR);
+    });
+  });
 
   // Inicializa o total
   updateTotal();
